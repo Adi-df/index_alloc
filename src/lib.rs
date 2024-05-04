@@ -1,5 +1,6 @@
 #![no_std]
 
+use core::alloc::{GlobalAlloc, Layout};
 use core::cell::{RefCell, UnsafeCell};
 use core::cmp::Ordering;
 
@@ -185,6 +186,44 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
             memory: UnsafeCell::new([0; MEMORY_SIZE]),
             index: RefCell::new(MemoryIndex::new(MEMORY_SIZE)),
         }
+    }
+
+    fn try_reserve(&self, layout: Layout) -> Result<usize, IndexError> {
+        let mut index = self.index.borrow_mut();
+
+        let mem_size = (layout.size() / layout.align() + 1) * layout.align();
+
+        let spliting_region = index.size_region_available(mem_size)?;
+        let (region_index, _) = index.split_region(spliting_region, mem_size)?;
+
+        let region = index.get_region_mut(region_index)?;
+        region.reserve();
+
+        Ok(region.from)
+    }
+
+    fn try_free(&self, addr: usize) -> Result<(), IndexError> {
+        let mut index = self.index.borrow_mut();
+        let region_index = index.find_region(addr)?;
+
+        index.get_region_mut(region_index)?.free();
+        index.sort_merge();
+
+        Ok(())
+    }
+}
+
+unsafe impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> GlobalAlloc
+    for IndexAllocator<MEMORY_SIZE, INDEX_SIZE>
+{
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let offset = self.try_reserve(layout).unwrap();
+        self.memory.get().cast::<u8>().add(offset)
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+        let offset = ptr as usize - self.memory.get() as usize;
+        self.try_free(offset).unwrap();
     }
 }
 
