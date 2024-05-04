@@ -85,17 +85,6 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
             .ok_or(IndexError::NoIndexAvailable)
     }
 
-    fn size_region_available(&self, size: usize) -> Result<usize, IndexError> {
-        self.regions
-            .iter()
-            .enumerate()
-            .find_map(|(i, maybe_region)| match maybe_region {
-                Some(region) if region.size >= size && !region.used => Some(i),
-                _ => None,
-            })
-            .ok_or(IndexError::NoFittingRegion)
-    }
-
     fn find_region(&self, addr: usize) -> Result<usize, IndexError> {
         self.regions
             .iter()
@@ -105,6 +94,29 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                 _ => None,
             })
             .ok_or(IndexError::OutOfMemory)
+    }
+
+    fn size_region_available(
+        &self,
+        memory_start: usize,
+        layout: Layout,
+    ) -> Result<usize, IndexError> {
+        self.regions
+            .iter()
+            .enumerate()
+            .find_map(|(i, maybe_region)| match maybe_region {
+                Some(region) if !region.used => {
+                    let real_start = (memory_start + region.from).next_multiple_of(layout.align())
+                        - memory_start;
+                    if real_start + layout.size() <= region.end() {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .ok_or(IndexError::NoFittingRegion)
     }
 
     fn split_region(&mut self, region: usize, size: usize) -> Result<(usize, usize), IndexError> {
@@ -194,17 +206,24 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     }
 
     fn try_reserve(&self, layout: Layout) -> Result<usize, IndexError> {
+        let layout = layout.pad_to_align();
+        let memory_start = self.memory.get() as usize;
         let mut index = self.index.borrow_mut();
 
-        let mem_size = (layout.size() / layout.align() + 1) * layout.align();
+        let spliting_region_index =
+            index.size_region_available(memory_start, layout.pad_to_align())?;
+        let splitting_region = index.get_region(spliting_region_index)?.clone();
 
-        let spliting_region = index.size_region_available(mem_size)?;
-        let (region_index, _) = index.split_region(spliting_region, mem_size)?;
+        let real_start =
+            (memory_start + splitting_region.from).next_multiple_of(layout.align()) - memory_start;
+        let real_size = real_start - splitting_region.from + layout.size();
+
+        let (region_index, _) = index.split_region(spliting_region_index, real_size)?;
 
         let region = index.get_region_mut(region_index)?;
         region.reserve();
 
-        Ok(region.from)
+        Ok(real_start)
     }
 
     fn try_free(&self, addr: usize) -> Result<(), IndexError> {
@@ -286,9 +305,12 @@ mod tests {
             ],
         );
 
-        assert_eq!(index.size_region_available(16), Ok(2));
         assert_eq!(
-            index.size_region_available(32),
+            index.size_region_available(0, Layout::from_size_align(16, 1).unwrap()),
+            Ok(2)
+        );
+        assert_eq!(
+            index.size_region_available(0, Layout::from_size_align(32, 1).unwrap()),
             Err(IndexError::NoFittingRegion)
         );
     }
