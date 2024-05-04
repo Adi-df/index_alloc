@@ -2,6 +2,10 @@
 name = "index_alloc"
 version = "0.1.0"
 edition = "2021"
+authors = ["Adrien Degliame"]
+description = "A toy static allocator wich can serve as a global_allocator."
+repository = "https://github.com/Adi-df/index_alloc/"
+license = "MIT"
 
 [[example]]
 name = "global_allocator"
