@@ -301,12 +301,14 @@ mod tests {
     #[test]
     fn test_index_size_region_available() {
         let index: MemoryIndex<8> = create_index(
-            64,
+            128,
             &[
                 Some(MemoryRegion::new(0, 8, false)),
                 Some(MemoryRegion::new(8, 32, true)),
                 Some(MemoryRegion::new(40, 16, false)),
-                Some(MemoryRegion::new(56, 8, false)),
+                Some(MemoryRegion::new(56, 32, true)),
+                Some(MemoryRegion::new(88, 32, false)),
+                Some(MemoryRegion::new(120, 8, false)),
             ],
         );
 
@@ -318,8 +320,15 @@ mod tests {
             })
         );
         assert_eq!(
-            index.size_region_available(0, Layout::from_size_align(32, 1).unwrap()),
+            index.size_region_available(0, Layout::from_size_align(64, 1).unwrap()),
             Err(IndexError::NoFittingRegion)
+        );
+        assert_eq!(
+            index.size_region_available(0, Layout::from_size_align(16, 16).unwrap()),
+            Ok(AllocationBaker {
+                region: 4,
+                offset: 8
+            })
         );
     }
 
