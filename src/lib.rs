@@ -40,9 +40,31 @@ pub struct MemoryIndex<const INDEX_SIZE: usize> {
     sorted: bool,
 }
 
+impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
+    const fn new(memory_size: usize) -> Self {
+        const NONE: Option<MemoryRegion> = None;
+        let mut regions = [NONE; INDEX_SIZE];
+        regions[0] = Some(MemoryRegion::new(0, memory_size, false));
+
+        Self {
+            regions,
+            sorted: true,
+        }
+    }
+}
+
 pub struct IndexAllocator<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> {
     memory: UnsafeCell<[u8; MEMORY_SIZE]>,
     index: RefCell<MemoryIndex<INDEX_SIZE>>,
+}
+
+impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
+    pub const fn new() -> Self {
+        Self {
+            memory: UnsafeCell::new([0; MEMORY_SIZE]),
+            index: RefCell::new(MemoryIndex::new(MEMORY_SIZE)),
+        }
+    }
 }
 
 #[cfg(test)]
