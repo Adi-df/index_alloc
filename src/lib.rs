@@ -135,6 +135,42 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                 (Some(_), None) => Ordering::Less,
                 (None, None) => Ordering::Equal,
             });
+
+        let mut new_counter = 0;
+        let mut counter = 0;
+
+        while let Some(region) = &self.regions[counter] {
+            if region.used {
+                self.regions[new_counter] = Some(region.clone());
+                new_counter += 1;
+                counter += 1;
+            } else {
+                let from = region.from;
+                let mut size = 0;
+
+                for i in counter..INDEX_SIZE {
+                    if let Some(r) = &self.regions[i] {
+                        if r.used {
+                            self.regions[new_counter] = Some(MemoryRegion::new(from, size, false));
+                            new_counter += 1;
+                            counter = i;
+                            break;
+                        } else {
+                            size += r.size;
+                        }
+                    } else {
+                        self.regions[new_counter] = Some(MemoryRegion::new(from, size, false));
+                        new_counter += 1;
+                        counter = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        for i in new_counter..INDEX_SIZE {
+            self.regions[i] = None;
+        }
     }
 }
 
@@ -240,12 +276,12 @@ mod tests {
     }
 
     #[test]
-    fn test_sort_merge() {
+    fn test_index_sort() {
         let index_blueprint = [
             Some(MemoryRegion::new(0, 16, false)),
             None,
-            Some(MemoryRegion::new(32, 16, true)),
-            Some(MemoryRegion::new(48, 16, false)),
+            Some(MemoryRegion::new(32, 16, false)),
+            Some(MemoryRegion::new(48, 16, true)),
             None,
             Some(MemoryRegion::new(16, 16, true)),
         ];
@@ -267,6 +303,34 @@ mod tests {
         );
         assert_eq!(
             index.get_region(3).unwrap(),
+            index_blueprint[3].as_ref().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_index_merge() {
+        let index_blueprint = [
+            Some(MemoryRegion::new(0, 16, false)),
+            None,
+            Some(MemoryRegion::new(32, 16, true)),
+            Some(MemoryRegion::new(48, 16, true)),
+            None,
+            Some(MemoryRegion::new(16, 16, false)),
+        ];
+        let mut index: MemoryIndex<8> = create_index(64, &index_blueprint);
+
+        index.sort_merge();
+
+        assert_eq!(
+            *index.get_region(0).unwrap(),
+            MemoryRegion::new(0, 32, false)
+        );
+        assert_eq!(
+            index.get_region(1).unwrap(),
+            index_blueprint[2].as_ref().unwrap()
+        );
+        assert_eq!(
+            index.get_region(2).unwrap(),
             index_blueprint[3].as_ref().unwrap()
         );
     }
