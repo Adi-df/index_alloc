@@ -2,7 +2,7 @@
 
 use core::cell::{RefCell, UnsafeCell};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexError {
     NoSuchRegion,
     NoIndexAvailable,
@@ -144,4 +144,42 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn create_index<const INDEX_SIZE: usize>(
+        size: usize,
+        from: &[Option<MemoryRegion>],
+    ) -> MemoryIndex<INDEX_SIZE> {
+        let mut index = MemoryIndex::new(size);
+        for (i, region) in from.iter().enumerate() {
+            index.regions[i] = region.clone();
+        }
+        index
+    }
+
+    #[test]
+    fn test_available_index() {
+        let index: MemoryIndex<8> = create_index(
+            64,
+            &[
+                Some(MemoryRegion::new(0, 16, false)),
+                Some(MemoryRegion::new(16, 16, true)),
+                None,
+                Some(MemoryRegion::new(32, 32, false)),
+            ],
+        );
+
+        assert_eq!(index.available_index(), Ok(2));
+
+        let index: MemoryIndex<4> = create_index(
+            64,
+            &[
+                Some(MemoryRegion::new(0, 16, false)),
+                Some(MemoryRegion::new(16, 16, true)),
+                Some(MemoryRegion::new(32, 16, false)),
+                Some(MemoryRegion::new(48, 16, false)),
+            ],
+        );
+
+        assert_eq!(index.available_index(), Err(IndexError::NoIndexAvailable));
+    }
 }
