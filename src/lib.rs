@@ -182,4 +182,23 @@ mod tests {
 
         assert_eq!(index.available_index(), Err(IndexError::NoIndexAvailable));
     }
+
+    #[test]
+    fn test_index_size_region_available() {
+        let index: MemoryIndex<8> = create_index(
+            64,
+            &[
+                Some(MemoryRegion::new(0, 8, false)),
+                Some(MemoryRegion::new(8, 32, true)),
+                Some(MemoryRegion::new(40, 16, false)),
+                Some(MemoryRegion::new(56, 8, false)),
+            ],
+        );
+
+        assert_eq!(index.size_region_available(16), Ok(2));
+        assert_eq!(
+            index.size_region_available(32),
+            Err(IndexError::NoFittingRegion)
+        );
+    }
 }
