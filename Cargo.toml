@@ -3,4 +3,5 @@ name = "index_alloc"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[[example]]
+name = "global_allocator"
