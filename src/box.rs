@@ -14,16 +14,8 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY
         allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
     ) -> Result<Self, IndexError> {
         let layout = Layout::for_value(&val);
-        let addr = allocator.try_reserve(layout)?;
-        let inner_ref = unsafe {
-            allocator
-                .memory
-                .get()
-                .add(addr)
-                .cast::<T>()
-                .as_mut()
-                .unwrap()
-        };
+        let inner_ptr = allocator.try_alloc(layout)?.cast::<T>();
+        let inner_ref = unsafe { inner_ptr.as_mut().unwrap() };
         *inner_ref = val;
 
         Ok(Self {

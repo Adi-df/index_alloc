@@ -64,6 +64,11 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
         Ok(())
     }
 
+    fn try_alloc(&self, layout: Layout) -> Result<*mut u8, IndexError> {
+        let offset = self.try_reserve(layout)?;
+        Ok(self.memory.get().cast::<u8>().wrapping_add(offset))
+    }
+
     fn try_free(&self, ptr: *mut u8) -> Result<(), IndexError> {
         let offset = ptr as usize - self.memory.get() as usize;
         self.try_free_addr(offset)?;
@@ -75,8 +80,7 @@ unsafe impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> GlobalAlloc
     for IndexAllocator<MEMORY_SIZE, INDEX_SIZE>
 {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let offset = self.try_reserve(layout).unwrap();
-        self.memory.get().cast::<u8>().add(offset)
+        self.try_alloc(layout).unwrap()
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
