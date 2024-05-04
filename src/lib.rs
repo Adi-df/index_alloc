@@ -1,6 +1,7 @@
 #![no_std]
 
 use core::cell::{RefCell, UnsafeCell};
+use core::cmp::Ordering;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexError {
@@ -125,6 +126,16 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
 
         Ok((region, right_index))
     }
+
+    fn sort_merge(&mut self) {
+        self.regions
+            .sort_unstable_by(|region1, region2| match (region1, region2) {
+                (Some(r1), Some(r2)) => r1.from.cmp(&r2.from),
+                (None, Some(_)) => Ordering::Greater,
+                (Some(_), None) => Ordering::Less,
+                (None, None) => Ordering::Equal,
+            });
+    }
 }
 
 pub struct IndexAllocator<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> {
@@ -199,6 +210,64 @@ mod tests {
         assert_eq!(
             index.size_region_available(32),
             Err(IndexError::NoFittingRegion)
+        );
+    }
+
+    #[test]
+    fn test_split_region() {
+        let mut index: MemoryIndex<8> = create_index(
+            64,
+            &[
+                Some(MemoryRegion::new(0, 8, false)),
+                Some(MemoryRegion::new(8, 32, true)),
+                Some(MemoryRegion::new(40, 16, false)),
+                Some(MemoryRegion::new(56, 8, false)),
+            ],
+        );
+
+        assert_eq!(index.split_region(2, 8), Ok((2, 4)));
+
+        assert_eq!(
+            *index.get_region(2).unwrap(),
+            MemoryRegion::new(40, 8, false)
+        );
+        assert_eq!(
+            *index.get_region(4).unwrap(),
+            MemoryRegion::new(48, 8, false)
+        );
+
+        assert_eq!(index.split_region(0, 16), Err(IndexError::RegionTooThin));
+    }
+
+    #[test]
+    fn test_sort_merge() {
+        let index_blueprint = [
+            Some(MemoryRegion::new(0, 16, false)),
+            None,
+            Some(MemoryRegion::new(32, 16, true)),
+            Some(MemoryRegion::new(48, 16, false)),
+            None,
+            Some(MemoryRegion::new(16, 16, true)),
+        ];
+        let mut index: MemoryIndex<8> = create_index(64, &index_blueprint);
+
+        index.sort_merge();
+
+        assert_eq!(
+            index.get_region(0).unwrap(),
+            index_blueprint[0].as_ref().unwrap()
+        );
+        assert_eq!(
+            index.get_region(1).unwrap(),
+            index_blueprint[5].as_ref().unwrap()
+        );
+        assert_eq!(
+            index.get_region(2).unwrap(),
+            index_blueprint[2].as_ref().unwrap()
+        );
+        assert_eq!(
+            index.get_region(3).unwrap(),
+            index_blueprint[3].as_ref().unwrap()
         );
     }
 }
