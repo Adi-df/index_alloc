@@ -3,11 +3,11 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::{RefCell, UnsafeCell};
 
-pub mod r#box;
+pub mod boxed;
 mod index;
 
+use boxed::Box;
 use index::MemoryIndex;
-use r#box::Box;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexError {
