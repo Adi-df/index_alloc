@@ -3,6 +3,7 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::{RefCell, UnsafeCell};
 
+pub mod r#box;
 mod index;
 
 use index::MemoryIndex;
@@ -53,13 +54,19 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
         Ok(region.from + allocation_baker.offset)
     }
 
-    fn try_free(&self, addr: usize) -> Result<(), IndexError> {
+    fn try_free_addr(&self, addr: usize) -> Result<(), IndexError> {
         let mut index = self.index.borrow_mut();
         let region_index = index.find_region(addr)?;
 
         index.get_region_mut(region_index)?.free();
         index.sort_merge();
 
+        Ok(())
+    }
+
+    fn try_free(&self, ptr: *mut u8) -> Result<(), IndexError> {
+        let offset = ptr as usize - self.memory.get() as usize;
+        self.try_free_addr(offset)?;
         Ok(())
     }
 }
@@ -73,7 +80,6 @@ unsafe impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> GlobalAlloc
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-        let offset = ptr as usize - self.memory.get() as usize;
-        self.try_free(offset).unwrap();
+        self.try_free(ptr).unwrap();
     }
 }
