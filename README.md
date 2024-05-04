@@ -24,3 +24,7 @@ fn main() {
     println!("{test_str}");
 }
 ```
+
+See more example in the [`Repository's Examples`].
+
+[`Repository's Examples`]: https://github.com/Adi-df/index_alloc/tree/master/examples
