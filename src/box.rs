@@ -1,4 +1,5 @@
 use core::alloc::Layout;
+use core::ops::{Deref, DerefMut};
 
 use crate::{IndexAllocator, IndexError};
 
@@ -14,17 +15,19 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY
     ) -> Result<Self, IndexError> {
         let layout = Layout::for_value(&val);
         let addr = allocator.try_reserve(layout)?;
+        let inner_ref = unsafe {
+            allocator
+                .memory
+                .get()
+                .add(addr)
+                .cast::<T>()
+                .as_mut()
+                .unwrap()
+        };
+        *inner_ref = val;
 
         Ok(Self {
-            val: unsafe {
-                allocator
-                    .memory
-                    .get()
-                    .add(addr)
-                    .cast::<T>()
-                    .as_mut()
-                    .unwrap()
-            },
+            val: inner_ref,
             allocator,
         })
     }
@@ -41,5 +44,22 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
         self.allocator
             .try_free((self.val as *mut T).cast::<u8>())
             .unwrap();
+    }
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Deref
+    for Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.val
+    }
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> DerefMut
+    for Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.val
     }
 }
