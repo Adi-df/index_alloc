@@ -11,6 +11,7 @@
 //! - Just joking don't use that
 //!
 //! To store allocated memory, [IndexAllocator] uses a MemoryIndex wich stores a list of regions containing the state of the region (size, from which address, used status). For instance :
+//!
 //! ```rust
 //! use index_alloc::IndexAllocator;
 //!
@@ -60,6 +61,8 @@ pub enum IndexError {
 /// For instance, setting `INDEX_SIZE` to 4 means no more allocations can be performed after 4 boxes are allocated, except if some of them are freed.
 ///
 /// [IndexAllocator] implement the [GlobalAlloc] trait wich allows it to be used as the app allocator.
+///
+/// # Example
 ///
 /// ```rust
 /// use index_alloc::IndexAllocator;
