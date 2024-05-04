@@ -12,7 +12,7 @@ pub struct MemoryRegion {
 }
 
 impl MemoryRegion {
-    /// Create a new [MemoryRegion].
+    /// Create a new [`MemoryRegion`].
     #[must_use]
     pub const fn new(from: usize, size: usize, used: bool) -> Self {
         Self { from, size, used }
@@ -57,12 +57,12 @@ pub struct MemoryIndex<const INDEX_SIZE: usize> {
 }
 
 impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
-    /// Create the [MemoryIndex] based on preexisting partition.
+    /// Create the [`MemoryIndex`] based on preexisting partition.
     pub const fn new(regions: [Option<MemoryRegion>; INDEX_SIZE]) -> Self {
         Self { regions }
     }
 
-    /// Create the [MemoryIndex] as a single region containing the whole memory pool.
+    /// Create the [`MemoryIndex`] as a single region containing the whole memory pool.
     pub const fn empty(memory_size: usize) -> Self {
         const NONE: Option<MemoryRegion> = None;
         let mut regions = [NONE; INDEX_SIZE];
@@ -71,7 +71,7 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
     }
 
     /// Get the region at the specified index.
-    /// Raise an [IndexError::NoSuchRegion] if the index is not a region.
+    /// Raise an [`IndexError::NoSuchRegion`] if the index is not a region.
     pub fn get_region(&self, region: usize) -> Result<&MemoryRegion, IndexError> {
         self.regions[region]
             .as_ref()
@@ -79,7 +79,7 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
     }
 
     /// Get mutable access the region at the specified index.
-    /// Raise an [IndexError::NoSuchRegion] if the index is not a region.
+    /// Raise an [`IndexError::NoSuchRegion`] if the index is not a region.
     pub fn get_region_mut(&mut self, region: usize) -> Result<&mut MemoryRegion, IndexError> {
         self.regions[region]
             .as_mut()
@@ -87,7 +87,7 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
     }
 
     /// Get an index corresponding to an empty index.
-    /// Raise an [IndexError::NoIndexAvailable] if the index is full.
+    /// Raise an [`IndexError::NoIndexAvailable`] if the index is full.
     pub fn available_index(&self) -> Result<usize, IndexError> {
         self.regions
             .iter()
@@ -115,7 +115,7 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
     }
 
     /// Look for a memory region ready to store data corresponding to a certain [Layout].
-    /// Raise an [Index::NoFittingRegion] if no region satisfy the [Layout] needs.
+    /// Raise an [`Index::NoFittingRegion`] if no region satisfy the [Layout] needs.
     pub fn size_region_available(
         &self,
         memory_start: usize,

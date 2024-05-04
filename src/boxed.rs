@@ -1,4 +1,4 @@
-//! This module contains the [Box] smart pointer, capable of managing memory in a [IndexAllocator].
+//! This module contains the [`Box`] smart pointer, capable of managing memory in a [`IndexAllocator`].
 
 use core::alloc::Layout;
 use core::mem;
@@ -7,10 +7,10 @@ use core::ptr;
 
 use crate::{IndexAllocator, IndexError};
 
-/// A smart pointer holding its value in an [IndexAllocator] and managing its memroy.
+/// A smart pointer holding its value in an [`IndexAllocator`] and managing its memroy.
 ///
-/// The [Box] smart pointer can be obtained by using [IndexAllocator::try_boxed]
-/// or by directly using [Box::try_new] and providing the [IndexAllocator].
+/// The [`Box`] smart pointer can be obtained by using [`IndexAllocator::try_boxed`]
+/// or by directly using [`Box::try_new`] and providing the [`IndexAllocator`].
 ///
 /// # Example
 ///
@@ -31,8 +31,11 @@ where
 }
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY_SIZE, INDEX_SIZE> {
-    /// Try to create a new [Box] containing a value of type `T` in an [IndexAllocator].
-    /// See also [IndexAllocator::try_boxed] to create a [Box] directly by the allocator.
+    /// Try to create a new [`Box`] containing a value of type `T` in an [`IndexAllocator`].
+    /// See also [`IndexAllocator::try_boxed`] to create a [`Box`] directly by the allocator.
+    ///
+    /// # Errors
+    /// The method return an [`IndexError`] if the allocation failled.
     pub fn try_new(
         val: T,
         allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
@@ -49,13 +52,18 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY
         })
     }
 
-    /// Try to free the memory the [Box] is managing, dropping its value.
+    /// Try to free the memory the [`Box`] is managing, dropping its value.
+    ///
+    /// # Errors
+    ///
+    /// The method return a [`IndexError`] if the deallocation failled.
     pub fn try_free(self) -> Result<(), IndexError> {
         self.allocator
             .try_free(ptr::from_mut(self.val).cast::<u8>())
     }
 
-    /// Get a reference to the [IndexAllocator] used by the box.
+    /// Get a reference to the [`IndexAllocator`] used by the box.
+    #[must_use]
     pub fn allocator(&self) -> &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
         self.allocator
     }
