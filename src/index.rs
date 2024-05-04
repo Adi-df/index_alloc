@@ -156,7 +156,7 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
         let mut new_counter = 0;
         let mut counter = 0;
 
-        while let Some(region) = &self.regions[counter] {
+        'merge_loop: while let Some(region) = &self.regions[counter] {
             if region.used {
                 self.regions[new_counter] = Some(region.clone());
                 new_counter += 1;
@@ -174,6 +174,12 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                             break;
                         } else {
                             size += r.size;
+
+                            if i + 1 == INDEX_SIZE {
+                                self.regions[new_counter] =
+                                    Some(MemoryRegion::new(from, size, false));
+                                break 'merge_loop;
+                            }
                         }
                     } else {
                         self.regions[new_counter] = Some(MemoryRegion::new(from, size, false));
@@ -182,9 +188,6 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                         break;
                     }
                 }
-
-                self.regions[new_counter] = Some(MemoryRegion::new(from, size, false));
-                break;
             }
         }
 
