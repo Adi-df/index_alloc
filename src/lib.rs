@@ -17,6 +17,7 @@ pub enum IndexError {
     OutOfMemory,
     RegionTooThin,
     EmptyPtr,
+    IndexAlreadyBorrowed,
 }
 
 pub struct IndexAllocator<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> {
@@ -47,7 +48,10 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
         let layout = layout.pad_to_align();
         let memory_start = self.memory.get() as usize;
 
-        let mut index = self.index.borrow_mut();
+        let mut index = self
+            .index
+            .try_borrow_mut()
+            .map_err(|_| IndexError::IndexAlreadyBorrowed)?;
 
         let allocation_baker = index.size_region_available(memory_start, layout)?;
 
@@ -63,7 +67,10 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     }
 
     fn try_free_addr(&self, addr: usize) -> Result<(), IndexError> {
-        let mut index = self.index.borrow_mut();
+        let mut index = self
+            .index
+            .try_borrow_mut()
+            .map_err(|_| IndexError::IndexAlreadyBorrowed)?;
         let region_index = index.find_region(addr)?;
 
         index.get_region_mut(region_index)?.free();
