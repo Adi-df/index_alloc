@@ -180,6 +180,11 @@ pub struct IndexAllocator<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> {
     index: RefCell<MemoryIndex<INDEX_SIZE>>,
 }
 
+unsafe impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Sync
+    for IndexAllocator<MEMORY_SIZE, INDEX_SIZE>
+{
+}
+
 impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
     pub const fn new() -> Self {
         Self {
