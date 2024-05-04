@@ -1,4 +1,5 @@
 use core::alloc::Layout;
+use core::mem;
 use core::ops::{Deref, DerefMut};
 use core::ptr;
 
@@ -17,7 +18,7 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY
         let layout = Layout::for_value(&val);
         let inner_ptr = allocator.try_alloc(layout)?.cast::<T>();
         let inner_ref = unsafe { inner_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
-        *inner_ref = val;
+        mem::forget(mem::replace(inner_ref, val));
 
         Ok(Self {
             val: inner_ref,
@@ -28,6 +29,10 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY
     pub fn try_free(self) -> Result<(), IndexError> {
         self.allocator
             .try_free(ptr::from_mut(self.val).cast::<u8>())
+    }
+
+    pub fn allocator(&self) -> &IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
+        self.allocator
     }
 }
 
