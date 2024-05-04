@@ -6,6 +6,8 @@ use core::cell::{RefCell, UnsafeCell};
 pub enum IndexError {
     NoSuchRegion,
     NoIndexAvailable,
+    NoFittingRegion,
+    OutOfMemory,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +45,6 @@ impl MemoryRegion {
 #[derive(Debug, Clone)]
 pub struct MemoryIndex<const INDEX_SIZE: usize> {
     regions: [Option<MemoryRegion>; INDEX_SIZE],
-    sorted: bool,
 }
 
 impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
@@ -52,10 +53,7 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
         let mut regions = [NONE; INDEX_SIZE];
         regions[0] = Some(MemoryRegion::new(0, memory_size, false));
 
-        Self {
-            regions,
-            sorted: true,
-        }
+        Self { regions }
     }
 
     fn get_region(&self, region: usize) -> Result<&MemoryRegion, IndexError> {
@@ -82,6 +80,28 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                 }
             })
             .ok_or(IndexError::NoIndexAvailable)
+    }
+
+    fn size_region_available(&self, size: usize) -> Result<usize, IndexError> {
+        self.regions
+            .iter()
+            .enumerate()
+            .find_map(|(i, maybe_region)| match maybe_region {
+                Some(region) if region.size >= size && !region.used => Some(i),
+                _ => None,
+            })
+            .ok_or(IndexError::NoFittingRegion)
+    }
+
+    fn find_region(&self, addr: usize) -> Result<usize, IndexError> {
+        self.regions
+            .iter()
+            .enumerate()
+            .find_map(|(i, maybe_region)| match maybe_region {
+                Some(region) if region.contains(addr) => Some(i),
+                _ => None,
+            })
+            .ok_or(IndexError::OutOfMemory)
     }
 }
 
