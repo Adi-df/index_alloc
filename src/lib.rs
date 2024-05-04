@@ -45,6 +45,12 @@ impl MemoryRegion {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AllocationBaker {
+    region: usize,
+    offset: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct MemoryIndex<const INDEX_SIZE: usize> {
     regions: [Option<MemoryRegion>; INDEX_SIZE],
@@ -100,16 +106,17 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
         &self,
         memory_start: usize,
         layout: Layout,
-    ) -> Result<usize, IndexError> {
+    ) -> Result<AllocationBaker, IndexError> {
         self.regions
             .iter()
             .enumerate()
             .find_map(|(i, maybe_region)| match maybe_region {
                 Some(region) if !region.used => {
-                    let real_start = (memory_start + region.from).next_multiple_of(layout.align())
-                        - memory_start;
-                    if real_start + layout.size() <= region.end() {
-                        Some(i)
+                    let offset = (memory_start + region.from).next_multiple_of(layout.align())
+                        - memory_start
+                        - region.from;
+                    if region.from + offset + layout.size() <= region.end() {
+                        Some(AllocationBaker { region: i, offset })
                     } else {
                         None
                     }
@@ -208,22 +215,20 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     fn try_reserve(&self, layout: Layout) -> Result<usize, IndexError> {
         let layout = layout.pad_to_align();
         let memory_start = self.memory.get() as usize;
+
         let mut index = self.index.borrow_mut();
 
-        let spliting_region_index =
-            index.size_region_available(memory_start, layout.pad_to_align())?;
-        let splitting_region = index.get_region(spliting_region_index)?.clone();
+        let allocation_baker = index.size_region_available(memory_start, layout)?;
 
-        let real_start =
-            (memory_start + splitting_region.from).next_multiple_of(layout.align()) - memory_start;
-        let real_size = real_start - splitting_region.from + layout.size();
-
-        let (region_index, _) = index.split_region(spliting_region_index, real_size)?;
+        let (region_index, _) = index.split_region(
+            allocation_baker.region,
+            allocation_baker.offset + layout.size(),
+        )?;
 
         let region = index.get_region_mut(region_index)?;
         region.reserve();
 
-        Ok(real_start)
+        Ok(region.from + allocation_baker.offset)
     }
 
     fn try_free(&self, addr: usize) -> Result<(), IndexError> {
@@ -307,7 +312,10 @@ mod tests {
 
         assert_eq!(
             index.size_region_available(0, Layout::from_size_align(16, 1).unwrap()),
-            Ok(2)
+            Ok(AllocationBaker {
+                region: 2,
+                offset: 0
+            })
         );
         assert_eq!(
             index.size_region_available(0, Layout::from_size_align(32, 1).unwrap()),
