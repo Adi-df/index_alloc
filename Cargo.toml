@@ -9,3 +9,6 @@ license = "MIT"
 
 [[example]]
 name = "global_allocator"
+
+[[example]]
+name = "boxed_linked_list"
