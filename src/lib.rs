@@ -16,6 +16,7 @@ pub enum IndexError {
     NoFittingRegion,
     OutOfMemory,
     RegionTooThin,
+    EmptyPtr,
 }
 
 pub struct IndexAllocator<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> {
@@ -29,11 +30,17 @@ unsafe impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Sync
 }
 
 impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
-    pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new(memory: [u8; MEMORY_SIZE], index: MemoryIndex<INDEX_SIZE>) -> Self {
         Self {
-            memory: UnsafeCell::new([0; MEMORY_SIZE]),
-            index: RefCell::new(MemoryIndex::new(MEMORY_SIZE)),
+            memory: UnsafeCell::new(memory),
+            index: RefCell::new(index),
         }
+    }
+
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self::new([0; MEMORY_SIZE], MemoryIndex::empty(MEMORY_SIZE))
     }
 
     fn try_reserve(&self, layout: Layout) -> Result<usize, IndexError> {
@@ -78,6 +85,15 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
 
     pub fn try_boxed<T>(&self, val: T) -> Result<Box<T, MEMORY_SIZE, INDEX_SIZE>, IndexError> {
         Box::try_new(val, self)
+    }
+}
+
+impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Default
+    for IndexAllocator<MEMORY_SIZE, INDEX_SIZE>
+{
+    #[must_use]
+    fn default() -> Self {
+        Self::empty()
     }
 }
 
