@@ -15,12 +15,17 @@ use crate::{IndexAllocator, IndexError};
 /// # Example
 ///
 /// ```
+/// use index_alloc::IndexAllocator;
+///
 /// let allocator: IndexAllocator<64, 8> = IndexAllocator::empty();
 ///
-/// let test_box = allocator::try_boxed([1, 2, 3, 4]).unwrap();
+/// let test_box = allocator.try_boxed([1, 2, 3, 4]).unwrap();
 /// assert_eq!(*test_box, [1, 2, 3, 4]);
 /// ```
-pub struct Box<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> {
+pub struct Box<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize>
+where
+    T: ?Sized,
+{
     val: &'a mut T,
     allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
 }
@@ -58,6 +63,8 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
     for Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
 {
     fn drop(&mut self) {
         self.allocator

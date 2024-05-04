@@ -16,7 +16,7 @@
 //! use index_alloc::IndexAllocator;
 //!
 //! #[global_allocator]
-//! static ALLOCATOR: IndexAllocator<1024, 16> = IndexAllocator::empty();
+//! static ALLOCATOR: IndexAllocator<2048, 16> = IndexAllocator::empty();
 //!
 //! fn main() {
 //!     let test_str = String::from("Hello World");
