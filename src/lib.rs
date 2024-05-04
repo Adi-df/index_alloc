@@ -34,14 +34,22 @@ mod index;
 use boxed::Box;
 use index::MemoryIndex;
 
+/// The Error type wich the Allocator can raise.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexError {
+    /// The memory region trying to be accessed doesn't exists.
     NoSuchRegion,
+    /// The MemoryIndex is full and no more allocation can be performed.
     NoIndexAvailable,
+    /// No free region match the allocation needs.
     NoFittingRegion,
+    /// The address provided isn't in the memory range.
     OutOfMemory,
+    /// The region is too thin for the operation trying to be executed on it.
     RegionTooThin,
+    /// The pointer provided is null.
     EmptyPtr,
+    /// The MemoryIndex is already borrowed.
     IndexAlreadyBorrowed,
 }
 
