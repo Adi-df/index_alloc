@@ -2,6 +2,12 @@
 
 use core::cell::{RefCell, UnsafeCell};
 
+#[derive(Debug, Clone, Copy)]
+pub enum IndexError {
+    NoSuchRegion,
+    NoIndexAvailable,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MemoryRegion {
     from: usize,
@@ -50,6 +56,32 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
             regions,
             sorted: true,
         }
+    }
+
+    fn get_region(&self, region: usize) -> Result<&MemoryRegion, IndexError> {
+        self.regions[region]
+            .as_ref()
+            .ok_or(IndexError::NoSuchRegion)
+    }
+
+    fn get_region_mut(&mut self, region: usize) -> Result<&mut MemoryRegion, IndexError> {
+        self.regions[region]
+            .as_mut()
+            .ok_or(IndexError::NoSuchRegion)
+    }
+
+    fn available_index(&self) -> Result<usize, IndexError> {
+        self.regions
+            .iter()
+            .enumerate()
+            .find_map(|(i, maybe_region)| {
+                if maybe_region.is_none() {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .ok_or(IndexError::NoIndexAvailable)
     }
 }
 
