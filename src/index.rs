@@ -182,6 +182,9 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                         break;
                     }
                 }
+
+                self.regions[new_counter] = Some(MemoryRegion::new(from, size, false));
+                break;
             }
         }
 
