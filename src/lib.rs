@@ -8,6 +8,7 @@ pub enum IndexError {
     NoIndexAvailable,
     NoFittingRegion,
     OutOfMemory,
+    RegionTooThin,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +103,27 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                 _ => None,
             })
             .ok_or(IndexError::OutOfMemory)
+    }
+
+    fn split_region(&mut self, region: usize, size: usize) -> Result<(usize, usize), IndexError> {
+        if self.get_region(region)?.size < size {
+            return Err(IndexError::RegionTooThin);
+        }
+
+        let right_index = self.available_index()?;
+        let left_region = self.get_region_mut(region)?;
+
+        let left_size = size;
+        let right_size = left_region.size - size;
+
+        left_region.size = left_size;
+        self.regions[right_index] = Some(MemoryRegion::new(
+            left_region.end(),
+            right_size,
+            left_region.used,
+        ));
+
+        Ok((region, right_index))
     }
 }
 
