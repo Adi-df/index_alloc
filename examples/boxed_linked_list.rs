@@ -65,7 +65,7 @@ where
 }
 
 fn main() {
-    let allocator: IndexAllocator<32768, 64> = IndexAllocator::empty();
+    let allocator: IndexAllocator<128, 8> = IndexAllocator::empty();
 
     let mut list = List::empty(&allocator);
     list.push(1).unwrap();
