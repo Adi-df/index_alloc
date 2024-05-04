@@ -7,6 +7,7 @@ pub mod r#box;
 mod index;
 
 use index::MemoryIndex;
+use r#box::Box;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexError {
@@ -73,6 +74,10 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
         let offset = ptr as usize - self.memory.get() as usize;
         self.try_free_addr(offset)?;
         Ok(())
+    }
+
+    pub fn try_boxed<T>(&self, val: T) -> Result<Box<T, MEMORY_SIZE, INDEX_SIZE>, IndexError> {
+        Box::try_new(val, self)
     }
 }
 
