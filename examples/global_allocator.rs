@@ -1,7 +1,7 @@
 use index_alloc::IndexAllocator;
 
 #[global_allocator]
-static ALLOCATOR: IndexAllocator<2048, 32> = IndexAllocator::new();
+static ALLOCATOR: IndexAllocator<2048, 32> = IndexAllocator::empty();
 
 fn main() {
     let mut test_str = String::from("Hello World!\n");

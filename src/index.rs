@@ -47,12 +47,15 @@ pub struct MemoryIndex<const INDEX_SIZE: usize> {
 }
 
 impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
-    pub const fn new(memory_size: usize) -> Self {
+    pub const fn new(regions: [Option<MemoryRegion>; INDEX_SIZE]) -> Self {
+        Self { regions }
+    }
+
+    pub const fn empty(memory_size: usize) -> Self {
         const NONE: Option<MemoryRegion> = None;
         let mut regions = [NONE; INDEX_SIZE];
         regions[0] = Some(MemoryRegion::new(0, memory_size, false));
-
-        Self { regions }
+        Self::new(regions)
     }
 
     pub fn get_region(&self, region: usize) -> Result<&MemoryRegion, IndexError> {
@@ -179,6 +182,9 @@ impl<const INDEX_SIZE: usize> MemoryIndex<INDEX_SIZE> {
                         break;
                     }
                 }
+
+                self.regions[new_counter] = Some(MemoryRegion::new(from, size, false));
+                break;
             }
         }
 
@@ -196,7 +202,7 @@ mod tests {
         size: usize,
         from: &[Option<MemoryRegion>],
     ) -> MemoryIndex<INDEX_SIZE> {
-        let mut index = MemoryIndex::new(size);
+        let mut index = MemoryIndex::empty(size);
         for (i, region) in from.iter().enumerate() {
             index.regions[i] = region.clone();
         }
