@@ -63,3 +63,21 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> DerefMut
         self.val
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_box_allocation() {
+        let allocator: IndexAllocator<64, 8> = IndexAllocator::new();
+
+        let test_box = Box::try_new([1u8, 2, 3, 4], &allocator).unwrap();
+
+        assert_eq!(*test_box, [1, 2, 3, 4]);
+        assert_eq!(unsafe { (*allocator.memory.get())[0] }, 1);
+        assert_eq!(unsafe { (*allocator.memory.get())[1] }, 2);
+        assert_eq!(unsafe { (*allocator.memory.get())[2] }, 3);
+        assert_eq!(unsafe { (*allocator.memory.get())[3] }, 4);
+    }
+}
