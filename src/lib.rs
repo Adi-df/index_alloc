@@ -131,7 +131,15 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     /// # Errors
     ///
     /// The method return a [`IndexError`] if the allocation failled.
-    pub fn try_boxed<T>(&self, val: T) -> Result<Box<T, MEMORY_SIZE, INDEX_SIZE>, IndexError> {
+    pub fn try_boxed<'a, T, U>(
+        &'a self,
+        val: U,
+    ) -> Result<Box<T, MEMORY_SIZE, INDEX_SIZE>, IndexError>
+    where
+        U: 'a,
+        T: ?Sized,
+        &'a mut T: From<&'a mut U>,
+    {
         Box::try_new(val, self)
     }
 }

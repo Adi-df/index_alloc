@@ -30,26 +30,37 @@ where
     allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
 }
 
-impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY_SIZE, INDEX_SIZE> {
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
     /// Try to create a new [`Box`] containing a value of type `T` in an [`IndexAllocator`].
     /// See also [`IndexAllocator::try_boxed`] to create a [`Box`] directly by the allocator.
     ///
     /// # Errors
     /// The method return an [`IndexError`] if the allocation failled.
-    pub fn try_new(
-        val: T,
+    pub fn try_new<U>(
+        val: U,
         allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
-    ) -> Result<Self, IndexError> {
+    ) -> Result<Self, IndexError>
+    where
+        U: 'a,
+        &'a mut T: From<&'a mut U>,
+    {
         let layout = Layout::for_value(&val);
-        let inner_ptr = allocator.try_alloc(layout)?.cast::<T>();
+        let inner_ptr = allocator.try_alloc(layout)?.cast::<U>();
         let inner_ref = unsafe { inner_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
         // Ensure the inner_ref destructor isn't called as it's uninisialized memory.
         mem::forget(mem::replace(inner_ref, val));
 
-        Ok(Self {
-            val: inner_ref,
-            allocator,
-        })
+        Ok(unsafe { Self::from_raw_ref(inner_ref.into(), allocator) })
+    }
+
+    pub unsafe fn from_raw_ref(
+        val: &'a mut T,
+        allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
+    ) -> Self {
+        Self { val, allocator }
     }
 
     /// Try to free the memory the [`Box`] is managing, dropping its value.
@@ -83,6 +94,8 @@ where
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Deref
     for Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
 {
     type Target = T;
     fn deref(&self) -> &Self::Target {
@@ -92,6 +105,8 @@ impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Deref
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> DerefMut
     for Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.val
