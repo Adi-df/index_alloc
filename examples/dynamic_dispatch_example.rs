@@ -6,16 +6,16 @@ const INDEX_SIZE: usize = 32;
 
 static ALLOCATOR: IndexAllocator<MEMORY_SIZE, INDEX_SIZE> = IndexAllocator::empty();
 
-pub type BoxedListener = Box<'static, dyn Listener + 'static, MEMORY_SIZE, INDEX_SIZE>;
+pub type BoxedListener<'a> = Box<'a, dyn Listener + 'static, MEMORY_SIZE, INDEX_SIZE>;
 
-pub struct EventDispatcher<const N: usize> {
-    allocator: &'static IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
-    listeners: [Option<BoxedListener>; N],
+pub struct EventDispatcher<'a, const N: usize> {
+    allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
+    listeners: [Option<BoxedListener<'a>>; N],
     counter: usize,
 }
 
-impl<const N: usize> EventDispatcher<N> {
-    pub fn empty(allocator: &'static IndexAllocator<MEMORY_SIZE, INDEX_SIZE>) -> Self {
+impl<'a, const N: usize> EventDispatcher<'a, N> {
+    pub fn empty(allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>) -> Self {
         const NONE: Option<BoxedListener> = None;
         Self {
             allocator,
@@ -27,12 +27,17 @@ impl<const N: usize> EventDispatcher<N> {
     pub fn register<T>(&mut self, listener: T)
     where
         T: Listener + 'static,
+        &'a mut (dyn Listener + 'static): From<&'a mut T>,
     {
         if self.counter >= N {
             panic!("Out of listeners");
         }
 
-        self.listeners[self.counter] = Some(self.allocator.try_boxed(listener).unwrap());
+        self.listeners[self.counter] = Some(
+            self.allocator
+                .try_boxed::<'a, dyn Listener + 'static, T>(listener)
+                .unwrap(),
+        );
         self.counter += 1;
     }
 
