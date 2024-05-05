@@ -22,6 +22,18 @@ use crate::{IndexAllocator, IndexError};
 /// let test_box = allocator.try_boxed([1, 2, 3, 4]).unwrap();
 /// assert_eq!(*test_box, [1, 2, 3, 4]);
 /// ```
+///
+/// # Dynamic dispatch
+///
+/// As for the core library `Box`, this [`Box`] type can be used for owned unsized types.
+/// This allows the use of types such as `Box<dyn Trait>`.
+///
+/// Note that to do that, it rely on some lifetime and type magic and on the fact conversion from `&mut T` to
+/// `&mut dyn Trait` where `T` implements `Trait`, this conversion is done with the [`From`] trait
+/// but it maybe necessary to implement the trait manually.
+/// For more information, see the [`Dynamic dispatch example`].
+///
+/// [`Dynamic dispatch example`]: https://github.com/Adi-df/index_alloc/blob/master/examples/dynamic_dispatch_example.rs
 pub struct Box<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize>
 where
     T: ?Sized,
