@@ -49,6 +49,16 @@ where
             allocator,
         })
     }
+
+    #[must_use]
+    pub fn strong_count(&self) -> usize {
+        self.strong.get()
+    }
+
+    #[must_use]
+    pub fn allocator(&self) -> &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
+        self.allocator
+    }
 }
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Clone
@@ -90,5 +100,50 @@ where
                 .try_free(ptr::from_ref(self.strong).cast_mut().cast::<u8>())
                 .unwrap();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::index::MemoryRegion;
+
+    use super::*;
+
+    #[test]
+    fn test_rc_allocation() {
+        let allocator: IndexAllocator<64, 8> = IndexAllocator::empty();
+
+        let test_rc = Rc::try_new([1u8, 2, 3, 4], &allocator).unwrap();
+
+        assert_eq!(*test_rc, [1, 2, 3, 4]);
+        assert_eq!(
+            allocator.index.borrow().get_region(0),
+            Ok(&MemoryRegion::new(0, 4, true))
+        );
+
+        drop(test_rc);
+
+        assert_eq!(
+            allocator.index.borrow().get_region(0),
+            Ok(&MemoryRegion::new(0, 64, false))
+        );
+    }
+
+    #[test]
+    fn test_rc_counting() {
+        let allocator: IndexAllocator<64, 8> = IndexAllocator::empty();
+
+        let test_rc = Rc::try_new("Hello world", &allocator).unwrap();
+
+        assert_eq!(test_rc.strong_count(), 1);
+
+        {
+            let rc_clone = Rc::clone(&test_rc);
+
+            assert_eq!(rc_clone.strong_count(), 2);
+        }
+
+        assert_eq!(test_rc.strong_count(), 1);
+        assert_eq!(*test_rc, "Hello world");
     }
 }
