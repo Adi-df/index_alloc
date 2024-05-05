@@ -68,10 +68,26 @@ impl Listener for DummyListener {
     }
 }
 
+pub struct CounterListener {
+    counter: u8,
+}
+
+impl Listener for CounterListener {
+    fn on_event(&mut self, name: &str) {
+        println!("Received : {name} : {}", self.counter);
+        self.counter += 1;
+    }
+}
+
 fn main() {
     let mut dispatcher: EventDispatcher<16> = EventDispatcher::empty(&ALLOCATOR);
 
     let dummy = DummyListener;
+    let counter = CounterListener { counter: 0 };
+
     dispatcher.register(dummy);
+    dispatcher.register(counter);
+
     dispatcher.send("It's a test");
+    dispatcher.send("Second test");
 }
