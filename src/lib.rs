@@ -6,6 +6,7 @@ use core::cell::{RefCell, UnsafeCell};
 
 pub mod boxed;
 mod index;
+pub mod rc;
 
 use boxed::Box;
 use index::MemoryIndex;
