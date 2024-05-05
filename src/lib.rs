@@ -30,13 +30,13 @@ pub enum IndexError {
     IndexAlreadyBorrowed,
 }
 
-/// The [`IndexAllocator`] struct is the main component of this crate, it create a memory pool of size `MEMORY_SIZE` with an index of size `INDEX_SIZE`.
+/// The [`IndexAllocator`] struct is the main component of this crate, it creates a memory pool of size `MEMORY_SIZE` with an index of size `INDEX_SIZE`.
 ///
 /// There are no restriction on how `MEMORY_SIZE` and `INDEX_SIZE` are set, but `INDEX_SIZE` corresponds to the maximum number of allocated objects that can be held at the same time.
 ///
 /// For instance, setting `INDEX_SIZE` to 4 means no more allocations can be performed after 4 boxes are allocated, except if some of them are freed.
 ///
-/// [`IndexAllocator`] implement the [`GlobalAlloc`] trait wich allows it to be used as the app allocator.
+/// [`IndexAllocator`] implement the [`GlobalAlloc`] trait which allows it to be used as the app allocator.
 ///
 /// # Example
 ///
@@ -71,7 +71,7 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     ///
     /// This should be the standard way to create an [`IndexAllocator`].
     ///
-    /// Note that the `MEMORY_SIZE` and `INDEX_SIZE` need to be infered at this point.
+    /// Note that the `MEMORY_SIZE` and `INDEX_SIZE` need to be inferred at this point.
     #[must_use]
     pub const fn empty() -> Self {
         Self::new([0; MEMORY_SIZE], MemoryIndex::empty(MEMORY_SIZE))
@@ -127,11 +127,11 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
         Ok(())
     }
 
-    /// Try to allocate the value in the memory pool and then return a [`Box`] smart pointer wich manage the memory.
+    /// Try to allocate the value in the memory pool and then return a [`Box`] smart pointer which manage the memory.
     ///
     /// # Errors
     ///
-    /// The method return a [`IndexError`] if the allocation failled.
+    /// The method return a [`IndexError`] if the allocation failed.
     pub fn try_boxed<'a, T, U>(
         &'a self,
         val: U,

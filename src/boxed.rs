@@ -28,9 +28,9 @@ use crate::{IndexAllocator, IndexError};
 /// As for the core library `Box`, this [`Box`] type can be used for owned unsized types.
 /// This allows the use of types such as `Box<dyn Trait>`.
 ///
-/// Note that to do that, it rely on some lifetime and type magic and on the fact conversion from `&mut T` to
+/// Note that to do that, it relies on some lifetime and type magic and on the fact conversion from `&mut T` to
 /// `&mut dyn Trait` where `T` implements `Trait`, this conversion is done with the [`From`] trait
-/// but it maybe necessary to implement the trait manually.
+/// but, it may be necessary to implement the trait manually.
 /// For more information, see the [`Dynamic dispatch example`].
 ///
 /// [`Dynamic dispatch example`]: https://github.com/Adi-df/index_alloc/blob/master/examples/dynamic_dispatch_example.rs
@@ -50,7 +50,7 @@ where
     /// See also [`IndexAllocator::try_boxed`] to create a [`Box`] directly by the allocator.
     ///
     /// # Errors
-    /// The method return an [`IndexError`] if the allocation failled.
+    /// The method return an [`IndexError`] if the allocation failed.
     pub fn try_new<U>(
         val: U,
         allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
@@ -79,7 +79,7 @@ where
     ///
     /// # Errors
     ///
-    /// The method return a [`IndexError`] if the deallocation failled.
+    /// The method return a [`IndexError`] if the deallocation failed.
     pub fn try_free(self) -> Result<(), IndexError> {
         self.allocator
             .try_free(ptr::from_mut(self.val).cast::<u8>())
