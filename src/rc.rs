@@ -3,12 +3,6 @@ use core::ops::Deref;
 
 use crate::{IndexAllocator, IndexError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RcError {
-    TryToFreeEmptyRcBox,
-    IndexError(IndexError),
-}
-
 struct RcBox<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize>
 where
     T: ?Sized,
@@ -61,18 +55,16 @@ where
         self.weak.set(self.weak.get() - 1);
     }
 
-    fn try_free_inner(&self) -> Result<(), RcError> {
+    fn try_free_inner(&self) -> Result<(), IndexError> {
         match self.val.get() {
             Some(v) => {
                 unsafe {
-                    self.allocator
-                        .try_free_value(v)
-                        .map_err(RcError::IndexError)?;
+                    self.allocator.try_free_value(v)?;
                 }
                 self.val.set(None);
                 Ok(())
             }
-            None => Err(RcError::TryToFreeEmptyRcBox),
+            None => unreachable!(),
         }
     }
 }
@@ -85,10 +77,7 @@ where
     fn drop(&mut self) {
         if let Some(v) = self.val.get() {
             unsafe {
-                self.allocator
-                    .try_free_value(v)
-                    .map_err(RcError::IndexError)
-                    .unwrap();
+                self.allocator.try_free_value(v).unwrap();
                 self.val.set(None);
             }
         }
