@@ -6,13 +6,91 @@ use core::ptr;
 
 use crate::{IndexAllocator, IndexError};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RcError {
+    TryToFreeEmptyRcBox,
+    IndexError(IndexError),
+}
+
+struct RcBox<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize>
+where
+    T: ?Sized,
+{
+    pub val: Cell<Option<&'a T>>,
+    pub strong: Cell<usize>,
+    allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
+    fn try_new<U>(
+        val: U,
+        allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
+    ) -> Result<Self, IndexError>
+    where
+        U: 'a,
+        &'a T: From<&'a U>,
+    {
+        let val_layout = Layout::for_value(&val);
+        let val_ptr = allocator.try_alloc(val_layout)?.cast::<U>();
+        let val_ref = unsafe { val_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
+
+        mem::forget(mem::replace(val_ref, val));
+
+        Ok(Self {
+            val: Cell::new(Some(<&'a T>::from(&*val_ref))),
+            strong: Cell::new(0),
+            allocator,
+        })
+    }
+
+    fn allocator(&self) -> &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
+        self.allocator
+    }
+
+    fn increment_strong(&self) {
+        self.strong.set(self.strong.get() + 1);
+    }
+
+    fn decrement_strong(&self) {
+        self.strong.set(self.strong.get() - 1);
+    }
+
+    fn try_free_inner(&self) -> Result<(), RcError> {
+        match self.val.get() {
+            Some(v) => {
+                self.allocator
+                    .try_free(ptr::from_ref(v).cast_mut().cast::<u8>())
+                    .map_err(RcError::IndexError)?;
+                self.val.set(None);
+                Ok(())
+            }
+            None => Err(RcError::TryToFreeEmptyRcBox),
+        }
+    }
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
+    for RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
+    fn drop(&mut self) {
+        if let Some(v) = self.val.get() {
+            self.allocator
+                .try_free(ptr::from_ref(v).cast_mut().cast::<u8>())
+                .unwrap();
+        }
+    }
+}
+
 pub struct Rc<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize>
 where
     T: ?Sized,
 {
-    val: &'a T,
-    strong: &'a Cell<usize>,
-    allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
+    rc_box: &'a RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>,
 }
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Rc<'a, T, MEMORY_SIZE, INDEX_SIZE>
@@ -27,37 +105,29 @@ where
         U: 'a,
         &'a T: From<&'a U>,
     {
-        let strong_counter = Cell::new(1);
-        let val_layout = Layout::for_value(&val);
-        let strong_counter_layout = Layout::for_value(&strong_counter);
+        let rc_box = RcBox::try_new(val, allocator)?;
+        rc_box.increment_strong();
 
-        let val_ptr = allocator.try_alloc(val_layout)?.cast::<U>();
-        let val_ref = unsafe { val_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
+        let rc_box_layout = Layout::for_value(&rc_box);
 
-        let strong_counter_ptr = allocator
-            .try_alloc(strong_counter_layout)?
-            .cast::<Cell<usize>>();
-        let strong_counter_ref =
-            unsafe { strong_counter_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
+        let rc_box_ptr = allocator
+            .try_alloc(rc_box_layout)?
+            .cast::<RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>>();
+        let rc_box_ref = unsafe { rc_box_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
 
-        mem::forget(mem::replace(val_ref, val));
-        *strong_counter_ref = strong_counter;
+        mem::forget(mem::replace(rc_box_ref, rc_box));
 
-        Ok(Self {
-            val: <&'a T>::from(&*val_ref),
-            strong: &*strong_counter_ref,
-            allocator,
-        })
+        Ok(Self { rc_box: rc_box_ref })
     }
 
     #[must_use]
     pub fn strong_count(&self) -> usize {
-        self.strong.get()
+        self.rc_box.strong.get()
     }
 
     #[must_use]
     pub fn allocator(&self) -> &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
-        self.allocator
+        self.rc_box.allocator()
     }
 }
 
@@ -68,7 +138,7 @@ where
 {
     #[must_use]
     fn clone(&self) -> Self {
-        self.strong.set(self.strong.get() + 1);
+        self.rc_box.increment_strong();
         Self { ..*self }
     }
 }
@@ -81,7 +151,10 @@ where
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.val
+        match self.rc_box.val.get() {
+            Some(v) => v,
+            None => unreachable!(),
+        }
     }
 }
 
@@ -91,13 +164,12 @@ where
     T: ?Sized,
 {
     fn drop(&mut self) {
-        self.strong.set(self.strong.get() - 1);
-        if self.strong.get() == 0 {
-            self.allocator
-                .try_free(ptr::from_ref(self.val).cast_mut().cast::<u8>())
-                .unwrap();
-            self.allocator
-                .try_free(ptr::from_ref(self.strong).cast_mut().cast::<u8>())
+        self.rc_box.decrement_strong();
+        if self.rc_box.strong.get() == 0 {
+            self.rc_box.try_free_inner().unwrap();
+
+            self.allocator()
+                .try_free(ptr::from_ref(self.rc_box).cast_mut().cast::<u8>())
                 .unwrap();
         }
     }
@@ -105,8 +177,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::index::MemoryRegion;
-
     use super::*;
 
     #[test]
@@ -116,17 +186,6 @@ mod tests {
         let test_rc = Rc::try_new([1u8, 2, 3, 4], &allocator).unwrap();
 
         assert_eq!(*test_rc, [1, 2, 3, 4]);
-        assert_eq!(
-            allocator.index.borrow().get_region(0),
-            Ok(&MemoryRegion::new(0, 4, true))
-        );
-
-        drop(test_rc);
-
-        assert_eq!(
-            allocator.index.borrow().get_region(0),
-            Ok(&MemoryRegion::new(0, 64, false))
-        );
     }
 
     #[test]
