@@ -3,6 +3,8 @@
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::{RefCell, UnsafeCell};
+use core::mem;
+use core::ptr;
 
 pub mod boxed;
 mod index;
@@ -115,16 +117,30 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     }
 
     /// Try to perform allocation based on [`Layout`], internally uses [`IndexAllocator::try_reserve`] and then perform pointer arithmetic.
-    fn try_alloc(&self, layout: Layout) -> Result<*mut u8, IndexError> {
+    unsafe fn try_alloc(&self, layout: Layout) -> Result<*mut u8, IndexError> {
         let offset = self.try_reserve(layout)?;
         Ok(self.memory.get().cast::<u8>().wrapping_add(offset))
     }
 
     /// Try to free the [`MemoryRegion`] associated with the pointer given, internally using [`IndexAllocator::try_free_addr`].
-    fn try_free(&self, ptr: *mut u8) -> Result<(), IndexError> {
+    unsafe fn try_free(&self, ptr: *mut u8) -> Result<(), IndexError> {
         let offset = ptr as usize - self.memory.get() as usize;
         self.try_free_addr(offset)?;
         Ok(())
+    }
+
+    unsafe fn try_alloc_value<T>(&self, val: T) -> Result<&mut T, IndexError> {
+        let layout = Layout::for_value(&val);
+        let inner_ptr = self.try_alloc(layout)?.cast::<T>();
+        let inner_ref = unsafe { inner_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
+        // Ensure the inner_ref destructor isn't called as it's uninisialized memory.
+        mem::forget(mem::replace(inner_ref, val));
+
+        Ok(inner_ref)
+    }
+
+    unsafe fn try_free_value<T: ?Sized>(&self, val: &T) -> Result<(), IndexError> {
+        self.try_free(ptr::from_ref(val).cast_mut().cast::<u8>())
     }
 
     /// Try to allocate the value in the memory pool and then return a [`Box`] smart pointer which manage the memory.

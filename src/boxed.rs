@@ -1,9 +1,6 @@
 //! This module contains the [`Box`] smart pointer, capable of managing memory in a [`IndexAllocator`].
 
-use core::alloc::Layout;
-use core::mem;
 use core::ops::{Deref, DerefMut};
-use core::ptr;
 
 use crate::{IndexAllocator, IndexError};
 
@@ -59,11 +56,7 @@ where
         U: 'a,
         &'a mut T: From<&'a mut U>,
     {
-        let layout = Layout::for_value(&val);
-        let inner_ptr = allocator.try_alloc(layout)?.cast::<U>();
-        let inner_ref = unsafe { inner_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
-        // Ensure the inner_ref destructor isn't called as it's uninisialized memory.
-        mem::forget(mem::replace(inner_ref, val));
+        let inner_ref = unsafe { allocator.try_alloc_value(val)? };
 
         Ok(unsafe { Self::from_raw_ref(inner_ref.into(), allocator) })
     }
@@ -81,8 +74,7 @@ where
     ///
     /// The method return a [`IndexError`] if the deallocation failed.
     pub fn try_free(self) -> Result<(), IndexError> {
-        self.allocator
-            .try_free(ptr::from_mut(self.val).cast::<u8>())
+        unsafe { self.allocator.try_free_value(self.val) }
     }
 
     /// Get a reference to the [`IndexAllocator`] used by the box.
@@ -98,9 +90,9 @@ where
     T: ?Sized,
 {
     fn drop(&mut self) {
-        self.allocator
-            .try_free(ptr::from_mut(self.val).cast::<u8>())
-            .unwrap();
+        unsafe {
+            self.allocator.try_free_value(self.val).unwrap();
+        }
     }
 }
 

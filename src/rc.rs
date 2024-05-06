@@ -1,8 +1,5 @@
-use core::alloc::Layout;
 use core::cell::Cell;
-use core::mem;
 use core::ops::Deref;
-use core::ptr;
 
 use crate::{IndexAllocator, IndexError};
 
@@ -33,11 +30,7 @@ where
         U: 'a,
         &'a T: From<&'a U>,
     {
-        let val_layout = Layout::for_value(&val);
-        let val_ptr = allocator.try_alloc(val_layout)?.cast::<U>();
-        let val_ref = unsafe { val_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
-
-        mem::forget(mem::replace(val_ref, val));
+        let val_ref = unsafe { allocator.try_alloc_value(val)? };
 
         Ok(Self {
             val: Cell::new(Some(<&'a T>::from(&*val_ref))),
@@ -61,9 +54,11 @@ where
     fn try_free_inner(&self) -> Result<(), RcError> {
         match self.val.get() {
             Some(v) => {
-                self.allocator
-                    .try_free(ptr::from_ref(v).cast_mut().cast::<u8>())
-                    .map_err(RcError::IndexError)?;
+                unsafe {
+                    self.allocator
+                        .try_free_value(v)
+                        .map_err(RcError::IndexError)?;
+                }
                 self.val.set(None);
                 Ok(())
             }
@@ -79,9 +74,12 @@ where
 {
     fn drop(&mut self) {
         if let Some(v) = self.val.get() {
-            self.allocator
-                .try_free(ptr::from_ref(v).cast_mut().cast::<u8>())
-                .unwrap();
+            unsafe {
+                self.allocator
+                    .try_free_value(v)
+                    .map_err(RcError::IndexError)
+                    .unwrap();
+            }
         }
     }
 }
@@ -108,14 +106,7 @@ where
         let rc_box = RcBox::try_new(val, allocator)?;
         rc_box.increment_strong();
 
-        let rc_box_layout = Layout::for_value(&rc_box);
-
-        let rc_box_ptr = allocator
-            .try_alloc(rc_box_layout)?
-            .cast::<RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>>();
-        let rc_box_ref = unsafe { rc_box_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
-
-        mem::forget(mem::replace(rc_box_ref, rc_box));
+        let rc_box_ref = unsafe { allocator.try_alloc_value(rc_box)? };
 
         Ok(Self { rc_box: rc_box_ref })
     }
@@ -168,9 +159,9 @@ where
         if self.rc_box.strong.get() == 0 {
             self.rc_box.try_free_inner().unwrap();
 
-            self.allocator()
-                .try_free(ptr::from_ref(self.rc_box).cast_mut().cast::<u8>())
-                .unwrap();
+            unsafe {
+                self.allocator().try_free_value(self.rc_box).unwrap();
+            }
         }
     }
 }
