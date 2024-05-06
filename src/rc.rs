@@ -122,6 +122,13 @@ where
         Ok(Self { rc_box: rc_box_ref })
     }
 
+    pub fn downgrade(&self) -> Weak<'a, T, MEMORY_SIZE, INDEX_SIZE> {
+        self.rc_box.increment_weak();
+        Weak {
+            rc_box: self.rc_box,
+        }
+    }
+
     #[must_use]
     pub fn strong_count(&self) -> usize {
         self.rc_box.strong.get()
@@ -184,8 +191,65 @@ where
     }
 }
 
+pub struct Weak<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize>
+where
+    T: ?Sized,
+{
+    rc_box: &'a RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>,
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
+    #[must_use]
+    pub fn upgrade(&self) -> Option<Rc<'a, T, MEMORY_SIZE, INDEX_SIZE>> {
+        if self.strong_count() > 0 {
+            self.rc_box.increment_strong();
+            Some(Rc {
+                rc_box: self.rc_box,
+            })
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn strong_count(&self) -> usize {
+        self.rc_box.strong.get()
+    }
+
+    #[must_use]
+    pub fn weak_count(&self) -> usize {
+        self.rc_box.weak.get()
+    }
+
+    #[must_use]
+    pub fn allocator(&self) -> &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE> {
+        self.rc_box.allocator
+    }
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
+    for Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
+    fn drop(&mut self) {
+        self.rc_box.decrement_weak();
+
+        if self.rc_box.strong.get() == 0 && self.rc_box.weak.get() == 0 {
+            unsafe {
+                self.allocator().try_free_value(self.rc_box).unwrap();
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::index::MemoryRegion;
+
     use super::*;
 
     #[test]
@@ -195,6 +259,13 @@ mod tests {
         let test_rc = Rc::try_new([1u8, 2, 3, 4], &allocator).unwrap();
 
         assert_eq!(*test_rc, [1, 2, 3, 4]);
+
+        drop(test_rc);
+
+        assert_eq!(
+            allocator.index.borrow().get_region(0),
+            Ok(&MemoryRegion::new(0, 64, false))
+        );
     }
 
     #[test]
@@ -213,5 +284,46 @@ mod tests {
 
         assert_eq!(test_rc.strong_count(), 1);
         assert_eq!(*test_rc, "Hello world");
+    }
+
+    #[test]
+    fn test_weak_counting() {
+        let allocator: IndexAllocator<64, 8> = IndexAllocator::empty();
+
+        let test_rc = Rc::try_new("Hello World", &allocator).unwrap();
+        let test_weak = test_rc.downgrade();
+
+        assert_eq!(test_rc.strong_count(), 1);
+        assert_eq!(test_rc.weak_count(), 1);
+        assert_eq!(test_weak.strong_count(), 1);
+        assert_eq!(test_weak.weak_count(), 1);
+
+        {
+            let second_rc = test_weak.upgrade().unwrap();
+            assert_eq!(second_rc.weak_count(), 1);
+            assert_eq!(second_rc.strong_count(), 2);
+        }
+
+        assert_eq!(test_rc.strong_count(), 1);
+    }
+
+    #[test]
+    fn test_weak_on_dropped_value() {
+        let allocator: IndexAllocator<64, 8> = IndexAllocator::empty();
+
+        let test_rc = Rc::try_new("Hello World", &allocator).unwrap();
+        let test_weak = test_rc.downgrade();
+
+        drop(test_rc);
+
+        assert_eq!(test_weak.strong_count(), 0);
+        assert!(matches!(test_weak.upgrade(), None));
+
+        drop(test_weak);
+
+        assert_eq!(
+            allocator.index.borrow().get_region(0),
+            Ok(&MemoryRegion::new(0, 64, false))
+        );
     }
 }
