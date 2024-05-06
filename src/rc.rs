@@ -15,6 +15,7 @@ where
 {
     pub val: Cell<Option<&'a T>>,
     pub strong: Cell<usize>,
+    pub weak: Cell<usize>,
     allocator: &'a IndexAllocator<MEMORY_SIZE, INDEX_SIZE>,
 }
 
@@ -35,6 +36,7 @@ where
         Ok(Self {
             val: Cell::new(Some(<&'a T>::from(&*val_ref))),
             strong: Cell::new(0),
+            weak: Cell::new(0),
             allocator,
         })
     }
@@ -49,6 +51,14 @@ where
 
     fn decrement_strong(&self) {
         self.strong.set(self.strong.get() - 1);
+    }
+
+    fn increment_weak(&self) {
+        self.weak.set(self.weak.get() + 1);
+    }
+
+    fn decrement_weak(&self) {
+        self.weak.set(self.weak.get() - 1);
     }
 
     fn try_free_inner(&self) -> Result<(), RcError> {
@@ -79,6 +89,7 @@ where
                     .try_free_value(v)
                     .map_err(RcError::IndexError)
                     .unwrap();
+                self.val.set(None);
             }
         }
     }
@@ -114,6 +125,11 @@ where
     #[must_use]
     pub fn strong_count(&self) -> usize {
         self.rc_box.strong.get()
+    }
+
+    #[must_use]
+    pub fn weak_count(&self) -> usize {
+        self.rc_box.weak.get()
     }
 
     #[must_use]
@@ -159,8 +175,10 @@ where
         if self.rc_box.strong.get() == 0 {
             self.rc_box.try_free_inner().unwrap();
 
-            unsafe {
-                self.allocator().try_free_value(self.rc_box).unwrap();
+            if self.rc_box.weak.get() == 0 {
+                unsafe {
+                    self.allocator().try_free_value(self.rc_box).unwrap();
+                }
             }
         }
     }
