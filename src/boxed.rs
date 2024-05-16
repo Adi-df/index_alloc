@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 
 use crate::{IndexAllocator, IndexError};
 
-/// A smart pointer holding its value in an [`IndexAllocator`] and managing its memroy.
+/// A smart pointer holding its value in an [`IndexAllocator`] and managing its memory.
 ///
 /// The [`Box`] smart pointer can be obtained by using [`IndexAllocator::try_boxed`]
 /// or by directly using [`Box::try_new`] and providing the [`IndexAllocator`].
