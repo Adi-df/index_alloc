@@ -1,17 +1,17 @@
 # Index Alloc
-A simple, toy static Allocator wich use a fixed length array to store allocated data.
+A simple, toy static Allocator which use a fixed length array to store allocated data.
 
-This crate expose a struct [`IndexAllocator`] wich implement [`GlobalAlloc`] so it can be uses as the global allocator in `no_std` environement.
+This crate expose a struct [`IndexAllocator`] which implement [`GlobalAlloc`] so it can be uses as the global allocator in `no_std` environment.
 
 Disadvantages :
-- Extremly unsafe
+- Extremely unsafe
 - Very slow
 - Memory inefficient
 
 Even though it seems unusable, it has plenty of advantages :
-- Just joking don't use that
+- Just kidding, don't use that
 
-To store allocated memory, [`IndexAllocator`] uses a `MemoryIndex` wich stores a list of regions containing the state of the region (size, from which address, used status). For instance :
+To store allocated memory, [`IndexAllocator`] uses a `MemoryIndex` which stores a list of regions containing the state of the region (size, from which address, used status). For instance :
 
 ```rust
 use index_alloc::IndexAllocator;
