@@ -1,5 +1,6 @@
 //! This module contains the [`Box`] smart pointer, capable of managing memory in a [`IndexAllocator`].
 
+use core::fmt::Debug;
 use core::ops::{Deref, DerefMut};
 
 use crate::{IndexAllocator, IndexError};
@@ -114,6 +115,16 @@ where
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.val
+    }
+}
+
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Debug
+    for Box<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized + Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.val.fmt(f)
     }
 }
 

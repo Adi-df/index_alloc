@@ -218,7 +218,7 @@ where
     T: ?Sized + Debug,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?}", self.rc_box.val.get().unwrap())
+        self.rc_box.val.get().unwrap().fmt(f)
     }
 }
 
