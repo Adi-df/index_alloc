@@ -292,6 +292,16 @@ where
         self.rc_box.allocator
     }
 }
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Clone
+    for Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
+    fn clone(&self) -> Self {
+        self.rc_box.increment_weak();
+        Self { ..*self }
+    }
+}
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
     for Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
