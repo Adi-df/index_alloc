@@ -1,6 +1,6 @@
 [package]
 name = "index_alloc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Adrien Degliame"]
 description = "A toy static allocator wich can serve as a global_allocator."
