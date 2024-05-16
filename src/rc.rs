@@ -1,6 +1,7 @@
 //! This module contains the [`Rc`] smart point capable of shared ownership of memory in a [`IndexAllocator`]
 
 use core::cell::Cell;
+use core::fmt::Debug;
 use core::ops::Deref;
 
 use crate::{IndexAllocator, IndexError};
@@ -211,6 +212,16 @@ where
     }
 }
 
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Debug
+    for Rc<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized + Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self.rc_box.val.get().unwrap())
+    }
+}
+
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
     for Rc<'a, T, MEMORY_SIZE, INDEX_SIZE>
 where
@@ -303,6 +314,15 @@ where
     }
 }
 
+impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Debug
+    for Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
+where
+    T: ?Sized,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "(Weak)")
+    }
+}
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Drop
     for Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
 where
