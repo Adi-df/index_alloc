@@ -1,8 +1,8 @@
 //! This module contains the [`Rc`] smart point capable of shared ownership of memory in a [`IndexAllocator`]
 
-use core::cell::Cell;
 use core::fmt::Debug;
 use core::ops::Deref;
+use core::{cell::Cell, marker::PhantomData};
 
 use crate::{IndexAllocator, IndexError};
 
@@ -114,6 +114,7 @@ where
     T: ?Sized,
 {
     rc_box: &'a RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>,
+    phantom_unsync_unsend: PhantomData<*const ()>,
 }
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Rc<'a, T, MEMORY_SIZE, INDEX_SIZE>
@@ -138,7 +139,10 @@ where
 
         let rc_box_ref = unsafe { allocator.try_alloc_value(rc_box)? };
 
-        Ok(Self { rc_box: rc_box_ref })
+        Ok(Self {
+            rc_box: rc_box_ref,
+            phantom_unsync_unsend: Default::default(),
+        })
     }
 
     /// Create a [`Weak`] reference to the value owned by the [`Rc`].
@@ -146,6 +150,7 @@ where
         self.rc_box.increment_weak();
         Weak {
             rc_box: self.rc_box,
+            phantom_unsync_unsend: Default::default(),
         }
     }
 
@@ -266,6 +271,7 @@ where
     T: ?Sized,
 {
     rc_box: &'a RcBox<'a, T, MEMORY_SIZE, INDEX_SIZE>,
+    phantom_unsync_unsend: PhantomData<*const ()>,
 }
 
 impl<'a, T, const MEMORY_SIZE: usize, const INDEX_SIZE: usize> Weak<'a, T, MEMORY_SIZE, INDEX_SIZE>
@@ -279,6 +285,7 @@ where
             self.rc_box.increment_strong();
             Some(Rc {
                 rc_box: self.rc_box,
+                phantom_unsync_unsend: Default::default(),
             })
         } else {
             None
