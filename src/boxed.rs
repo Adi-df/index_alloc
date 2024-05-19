@@ -133,6 +133,8 @@ mod tests {
     use super::*;
 
     #[test]
+    // Ignore MIRI because the allocator inner memory is directly read, wich MIRI don't like.
+    #[cfg_attr(miri, ignore)]
     fn test_box_allocation() {
         let allocator: IndexAllocator<64, 8> = IndexAllocator::empty();
 

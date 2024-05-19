@@ -3,7 +3,6 @@
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::{RefCell, UnsafeCell};
-use core::mem;
 use core::ptr;
 
 pub mod boxed;
@@ -132,9 +131,8 @@ impl<const MEMORY_SIZE: usize, const INDEX_SIZE: usize> IndexAllocator<MEMORY_SI
     unsafe fn try_alloc_value<T>(&self, val: T) -> Result<&mut T, IndexError> {
         let layout = Layout::for_value(&val);
         let inner_ptr = self.try_alloc(layout)?.cast::<T>();
-        let inner_ref = unsafe { inner_ptr.as_mut().ok_or(IndexError::EmptyPtr) }?;
-        // Ensure the inner_ref destructor isn't called as it's uninisialized memory.
-        mem::forget(mem::replace(inner_ref, val));
+        ptr::write(inner_ptr, val);
+        let inner_ref = inner_ptr.as_mut().ok_or(IndexError::EmptyPtr)?;
 
         Ok(inner_ref)
     }
